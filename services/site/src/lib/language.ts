@@ -131,6 +131,37 @@ export function route(locale: Locale, pathname: string) {
   return `/${locale}${next}`
 }
 
+// The Console's marketing pages, which the Console will serve in every site language once
+// anomalyco/opencode-console#9155 and #9183 deploy. Its app pages (workspace, login, ...) stay
+// unprefixed; consoleRoute leaves them alone too. The landing page (/console) is matched on its
+// own so app pages under it are not caught.
+const consoleMarketing = [
+  "/console/models",
+  "/console/go",
+  "/console/enterprise",
+  "/console/teams",
+  "/console/support",
+  "/console/integrations",
+]
+
+/** True for a Console marketing page: the landing page itself or one of its listed pages. */
+function consoleMarketingPath(pathname: string) {
+  const path = fix(pathname).split(/[?#]/, 1)[0]?.replace(/\/$/, "") || "/"
+  return path === "/console" || consoleMarketing.some((page) => path === page || path.startsWith(`${page}/`))
+}
+
+/**
+ * A link to a Console marketing page in the page's language, for non-English pages. The site's own
+ * route() keeps /console unprefixed because that is how this app addresses the Console today; until
+ * the Console serves its localized pages, this app's middleware 301s these links back to the
+ * unprefixed page (localized() excludes /console).
+ */
+export function consoleRoute(locale: Locale, pathname: string) {
+  const next = strip(pathname)
+  if (locale === "en" || !consoleMarketingPath(next)) return next
+  return `/${locale}${next}`
+}
+
 export function label(locale: Locale) {
   return LABEL[locale]
 }
@@ -251,11 +282,7 @@ export function localeFromRequest(request: Request) {
 
 export function pageLocale(request: Request) {
   const pathname = new URL(request.url).pathname
-  return (
-    parseLocale(request.headers.get(LOCALE_HEADER)) ??
-    fromPathname(pathname) ??
-    ("en" satisfies Locale)
-  )
+  return parseLocale(request.headers.get(LOCALE_HEADER)) ?? fromPathname(pathname) ?? ("en" satisfies Locale)
 }
 
 export function cookie(locale: Locale) {
